@@ -66,7 +66,6 @@ struct default_radix_sort_field_getter: std::unary_function<elem_t, field_t>
     field_t* operator()(elem_t& x) const { return &x; }
 };
 
-// TODO: use memset if 0-bit representation represents 0 value, implement nullify(...) template function
 template <class T> STX_ALWAYS_INLINE
 void radix_sort_nullify(T *p, std::size_t size)
 {
