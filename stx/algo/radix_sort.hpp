@@ -143,37 +143,19 @@ inline void radix_sort_impl(
     const size_t dst_index_table_size = bucket_size + 1;
     const size_t num_buckets = num_passes == 1 ? 1 : 2;
 
-    const size_t stack_bucket_buf_size = 8*1024/sizeof(radix_t);
-    radix_t stack_bucket_buf[stack_bucket_buf_size];
-    const size_t buf_size = num_buckets*bucket_size + dst_index_table_size;
-    radix_t *buf = &stack_bucket_buf[0];
-    vector<radix_t> buf_vec;
-    if (stack_bucket_buf_size < buf_size) {
-        buf_vec.resize(buf_size);
-        buf = &buf_vec[0];
-    }
-    if (buf == &stack_bucket_buf[0]) {
-        for (size_t i = 0; i < stack_bucket_buf_size; ++i) {
-            stack_bucket_buf[i] = 0;
-        }
-    }
+    vector<radix_t> buf_vec(num_buckets*bucket_size + dst_index_table_size);
+    radix_t *buf = &buf_vec[0];
     radix_t *bucket = buf;
     radix_t *next_bucket = num_passes == 1 ? bucket : bucket + bucket_size;
     radix_t *dst_index_table = next_bucket + bucket_size;
     
-    elem_t *src = &*first, *dst = src, *last_dst = src;
-    elem_t *tmp_arr = &*first;
-    const size_t stack_dst_buf_size = 8*1024/sizeof(elem_t);
-    elem_t stack_dst_buf[stack_dst_buf_size];
-    dst = &stack_dst_buf[0];
-    // TODO: we can perform an optimization for a single pass in the future
-    //       and change "if" condition to: if (num_passes > 1 && ...)
+    elem_t *tmp_arr;
     scoped_free tmp_arr_sf;
-    if (stack_dst_buf_size < size) {
+    if (num_passes > 1) {
         tmp_arr = (elem_t*) malloc(sizeof(elem_t)*size);
         tmp_arr_sf.reset(tmp_arr);
-        dst = tmp_arr;
     }
+    elem_t *src = &*first, *dst = tmp_arr, *last_dst = src;
     // TODO: src must be of type iter_t, and dst of *elem_t !
     // RandomAccessIterator == T*
     
@@ -197,15 +179,15 @@ inline void radix_sort_impl(
     for (size_t pass = 0; pass < num_passes; ++pass, shift += shift_delta) {
         if (pass == num_passes - 1) last_pass = true;
         dst_index_table[0] = 0;
-        for (i = 0; i < bucket_size; ++i) {
+        for (size_t i = 0; i < bucket_size; ++i) {
             dst_index_table[i+1] = bucket[i] + dst_index_table[i];
         }
-        for (i = 0; i < bucket_size; ++i) {
+        for (size_t i = 0; i < bucket_size; ++i) {
             bucket[i] += dst_index_table[i];
         }
         if (!last_pass) {
             radix_sort_nullify(next_bucket, bucket_size);
-            for (i = 0; i < size; ++i) {
+            for (size_t i = 0; i < size; ++i) {
                 elem = &src[i];
                 field = getter(*elem);
                 bit_cast(value, *field);
@@ -216,7 +198,7 @@ inline void radix_sort_impl(
                 ++next_bucket[next_bucket_index];
             }
         } else {
-            for (i = 0; i < size; ++i) {
+            for (size_t i = 0; i < size; ++i) {
                 elem = &src[i];
                 field = getter(*elem);
                 bit_cast(value, *field);
@@ -230,7 +212,6 @@ inline void radix_sort_impl(
         swap(src, dst);
         swap(bucket, next_bucket);
     }
-    src = &*first;
     if (last_dst != src) {
         for (i = 0; i < size; ++i) {
             src[i] = last_dst[i];
