@@ -149,13 +149,16 @@ inline void radix_sort_impl(
     radix_t *next_bucket = num_passes == 1 ? bucket : bucket + bucket_size;
     radix_t *dst_index_table = next_bucket + bucket_size;
     
-    elem_t *tmp_arr;
+    elem_t *src = &*first, *dst = src, *last_dst = src;
+    elem_t *tmp_arr = &*first;
     scoped_free tmp_arr_sf;
-    if (num_passes > 1) {
+    // TODO: we can perform an optimization for a single pass in the future
+    //       and change "if" condition to: if (num_passes > 1)
+    if (1) {
         tmp_arr = (elem_t*) malloc(sizeof(elem_t)*size);
         tmp_arr_sf.reset(tmp_arr);
+        dst = tmp_arr;
     }
-    elem_t *src = &*first, *dst = tmp_arr, *last_dst = src;
     // TODO: src must be of type iter_t, and dst of *elem_t !
     // RandomAccessIterator == T*
     
@@ -179,15 +182,15 @@ inline void radix_sort_impl(
     for (size_t pass = 0; pass < num_passes; ++pass, shift += shift_delta) {
         if (pass == num_passes - 1) last_pass = true;
         dst_index_table[0] = 0;
-        for (size_t i = 0; i < bucket_size; ++i) {
+        for (i = 0; i < bucket_size; ++i) {
             dst_index_table[i+1] = bucket[i] + dst_index_table[i];
         }
-        for (size_t i = 0; i < bucket_size; ++i) {
+        for (i = 0; i < bucket_size; ++i) {
             bucket[i] += dst_index_table[i];
         }
         if (!last_pass) {
             radix_sort_nullify(next_bucket, bucket_size);
-            for (size_t i = 0; i < size; ++i) {
+            for (i = 0; i < size; ++i) {
                 elem = &src[i];
                 field = getter(*elem);
                 bit_cast(value, *field);
@@ -198,7 +201,7 @@ inline void radix_sort_impl(
                 ++next_bucket[next_bucket_index];
             }
         } else {
-            for (size_t i = 0; i < size; ++i) {
+            for (i = 0; i < size; ++i) {
                 elem = &src[i];
                 field = getter(*elem);
                 bit_cast(value, *field);
@@ -212,6 +215,7 @@ inline void radix_sort_impl(
         swap(src, dst);
         swap(bucket, next_bucket);
     }
+    src = &*first;
     if (last_dst != src) {
         for (i = 0; i < size; ++i) {
             src[i] = last_dst[i];
